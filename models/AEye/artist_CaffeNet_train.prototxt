@@ -1,0 +1,49 @@
+layer{
+	name:"image_roi_data"
+}
+layer{
+	name:"conv1"
+}
+layer{
+	name:"relu1"
+}
+layer{
+	name:"pool1"	
+}
+layer{
+	name:"conv2"
+}
+layer{
+	name:"relu2"
+}
+layer{
+	name:"roipool2"
+}
+
+#split into several singal batches to recombine
+layer{
+	name:"split"
+}
+layer{
+	name:"concate"
+}
+layer{
+	name:"deroipool2"
+	type:InnerProduct
+}
+layer{
+	name:"unpooling2"
+}
+layer{
+	name:"deconv2"
+}
+layer{
+	name:"unpooling1"
+}
+layer{
+	name:"deconv1"
+}
+layer{
+	name:"loss"
+}
+
