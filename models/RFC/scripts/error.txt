@@ -1,0 +1,1 @@
+{'roisource': '/home/henry/projects/artistEye/data/rois.txt', 'rois_number': 16, 'imagesource': '/home/henry/projects/artistEye/data/image.txt', 'batch_size': 2}

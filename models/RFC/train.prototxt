@@ -4,10 +4,11 @@ layer{
 	type:"Python"
 	top:"data"
 	top:"rois"
+
 	python_param {
     		module: 'roi_data_layer.layer'
     		layer: 'RoIDataLayer'
-    		param_str: "'imagesource': '/home/henry/project/artistEye/data/iimages.txt','roisource':'/home/henry/project/artistEye/data/rois.txt','batch_size':2,'rois_number':16"
+    		param_str: """imagesource: /home/henry/projects/artistEye/data/image.txt\nroisource: /home/henry/projects/artistEye/data/rois.txt\nbatch_size: 2\nrois_number: 16"""
   	}
 
 }
@@ -49,7 +50,7 @@ layer{
 
 layer{
 	name:"pool1"
-	type:"pooling"
+	type:"Pooling"
 	bottom:"conv1"
 	top:"pool1"
 	pooling_param{
@@ -124,19 +125,14 @@ layer{
 	}
 }
 
-layer{
-	name:"norm2"
-	type:"LRN"
-	bottom:"roipool2"
-	top:"roipool2"
-}
+
 #split into several singal batches to recombine
 
 layer{
-	name:"fc1"
-	type:"InnerProduct"
+	name:"fc3"
+	type:"Convolution"
 	bottom:"pool2"
-	top:"fc1"
+	top:"fc3"
 	
 	param {
     		lr_mult: 1
@@ -146,52 +142,64 @@ layer{
     		lr_mult: 2
     		decay_mult: 0
   	}
-	inner_product_param {
-    		num_output:64
   	
-		
-	}	
+	convolution_param {
+                num_output: 32
+                kernel_w: 4
+		kernel_h:3
+                stride: 1
+       
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
+
+        }
+	
 }
 
 layer{
 	name:"relu3"
 	type:"ReLU"
-	top:"fc1"
-	bottom:"fc1
+	top:"fc3"
+	bottom:"fc3"
 
 }
 
 layer{
-        name:"dropOut"
+        name:"dropOut3"
         type:"Dropout"
-        top:"fc1"
-        bottom:"fc1"
+        top:"fc3"
+        bottom:"fc3"
         dropout_param{
                 dropout_ratio:0.2
         }
 }
 
 
+
 layer{
-	name:"reshape"
-	type:"Reshape"
-	bottom:"fc1"
-	top:"fc1"
-	reshape_param{
-		shape{
-			dim:2
-			dim:32
-			dim:64
-			dim:1
-		}
+	name:"nwswap3"
+	type:"Python"
+	bottom:"fc3"
+	top:"fc3"
+	python_param{
+		module:'swap_layer.layer'
+		layer:'NWSwapLayer'
 	}
 }
 
+
 layer{
-	name:"fc2"
-	type:"InnerProduct"
-	top:"fc2"
-	bottom:"fc1"
+	name:"fc4"
+	type:"Convolution"
+	top:"fc4"
+	bottom:"fc3"
 	param {
                 lr_mult: 1
                 decay_mult: 1
@@ -200,33 +208,49 @@ layer{
                 lr_mult: 2
                 decay_mult: 0
         }
-        inner_product_param {
-                num_output:128
+
+	 convolution_param {
+                num_output: 128
+                kernel_w:1 
+                kernel_h:32
+                stride: 1
+
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
+
         }
+
 }
 
 layer{
 	name:"relu4"
 	type:"ReLU"
-	top:"fc2"
-	bottom:"fc2"
+	top:"fc4"
+	bottom:"fc4"
 }
 
 layer{
-	name:"dropout"
+	name:"dropout4"
 	type:"Dropout"
-	bottom:"fc2"
-	top:"fc2"
+	bottom:"fc4"
+	top:"fc4"
 	dropout_param{
 		dropout_ratio:0.2	
 	}
 }
 
 layer{
-	name:"deroipool2"
-	type:InnerProduct
-	top:"deroipool2"
-	bottom:"fc2"
+	name:"pre_deroipool5"
+	type:"Convolution"
+	top:"pre_deroipool5"
+	bottom:"fc4"
 	param {
                 lr_mult: 1
                 decay_mult: 1
@@ -235,23 +259,64 @@ layer{
                 lr_mult: 2
                 decay_mult: 0
         }
-        inner_product_param {
-                num_output:196608
+        
+	 convolution_param {
+                num_output: 196608
+                kernel_w: 1
+                kernel_h:1
+                stride: 1
+
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
         }
+}
+
+layer{
+	name:"reshape5"
+	type:"Reshape"
+	bottom:"pre_deroipool5"
+	top:"rshape_pre_deroipool5"
+	reshape_param{
+		shape:{
+			dim:0
+			dim:-1
+			dim:2
+			dim:1
+		}
+	}
+}
+
+layer{
+	name:"nwswap5"
+	type:"Python"
+	bottom:"rshape_pre_deroipool5"
+	top:"nwswap_rshape_pre_deroipool5"
+	python_param{
+		module:'swap_layer.layer'
+		layer:'NWSwapLayer'
+
+	}
 }
 
 layer{
 	name:"relu5"
 	type:"ReLU"
-	top:"deroipool2"
-	bottom:"deroipool2"
+	top:"nwswap_rshape_pre_deroipool5"
+	bottom:"nwswap_rshape_pre_deroipool5"
 }
 
 layer{
-	name:"dropout"
+	name:"dropout5"
 	type:"Dropout"
-	top:"deroipool2"
-	bottom:"deroipool2"
+	top:"nwswap_rshape_pre_deroipool5"
+	bottom:"nwswap_rshape_pre_deroipool5"
 	dropout_param{
 		dropout_ratio:0.2
 	}
@@ -259,26 +324,26 @@ layer{
 }
 	
 layer{
-	name:"reshape2"
+	name:"reshape5_2"
 	type:"Reshape"
-	bottom:"deroipool2"
-	top:"deroipool2"
+	bottom:"nwswap_rshape_pre_deroipool5"
+	top:"deroipool5"
 	reshape_param{
 		shape{
 			dim:2
 			dim:32
-			dim:64
 			dim:48
+			dim:64
 		}
 	}
 }	
 
 
 layer{
-	name:"deconv2"
-	type:"Deconolution"
-	bottom:"deroipool2"
-	top:"decon2"
+	name:"deconv6"
+	type:"Deconvolution"
+	bottom:"deroipool5"
+	top:"deconv6"
 
 	param {
                 lr_mult: 1
@@ -307,10 +372,10 @@ layer{
 
 
 layer{
-	name:"deconv1"
-	type:"Deconolution"
-	bottom:"unpooling1"
-	top:"deconv1"
+	name:"deconv7"
+	type:"Deconvolution"
+	bottom:"deconv6"
+	top:"deconv7"
 	  param {
                 lr_mult: 1
                 decay_mult: 1
@@ -338,16 +403,35 @@ layer{
 
 
 layer{
-	name:"relu6"
+	name:"relu7"
 	type:"ReLU"
-	bottom:"deconv1"
-	top:"deconv1"
+	bottom:"deconv7"
+	top:"deconv7"
 }
+
+layer{
+	name:"flatten_deconv"
+	type:"Flatten"
+	bottom:"deconv7"
+	top:"output"
+
+}
+
+layer{
+	name:"flatten_data"
+	type:"Flatten"
+	bottom:"data"
+	top:"label"
+	propagate_down:false
+}
+
 layer{
 	name:"loss"
 	type:"SigmoidCrossEntropyLoss"
-	bottom:"data"
-	bottom:"deconv1"
+	bottom:"label"
+	bottom:"output"
 	top:"loss"
+	propagate_down:false
+	propagate_down:false
 }
 
