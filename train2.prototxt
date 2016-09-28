@@ -1,0 +1,545 @@
+name:"RFCnet"
+layer{
+	name:"source_data"
+	type:"Python"
+	top:"data"
+	top:"rois"
+
+	python_param {
+    		module: 'roi_data_layer.layer'
+    		layer: 'RoIDataLayer'
+    		param_str: """imagesource: /home/henry/projects/artistEye/data/image.txt\nroisource: /home/henry/projects/artistEye/data/rois.txt\nbatch_size: 2\nrois_number: 16"""
+  	}
+
+}
+layer{
+	name:"conv1"
+	type:"Convolution"
+	top:"conv1"
+	bottom:"data"
+	param {
+    		lr_mult: 1
+    		decay_mult: 1
+  	}
+  	param {
+    		lr_mult: 2
+    		decay_mult: 0
+	}
+	convolution_param {
+    		num_output: 16
+    		kernel_size: 4
+    		stride: 2
+		pad:1
+    	
+		weight_filler {
+			type: "gaussian"
+			std: 0.01
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+	}
+}
+layer{
+	name:"relu1"
+	type:"ReLU"
+	bottom:"conv1"
+	top:"conv1"
+}
+
+layer{
+	name:"pool1"
+	type:"Pooling"
+	bottom:"conv1"
+	top:"pool1"
+	pooling_param{
+	
+		kernel_size:3
+		stride:1
+		pad:1
+	}	
+}
+
+layer {
+	name: "norm1"
+	type: "LRN"
+	bottom: "pool1"
+	top: "norm1"
+  	lrn_param {
+		local_size: 5
+		alpha: 0.0001
+		beta: 0.75
+  	}
+}
+
+layer{
+	name:"conv2"
+	type:"Convolution"
+	bottom:"norm1"
+	top:"conv2"
+	param {
+		lr_mult: 1
+		decay_mult: 1
+	}
+ 	param {
+		lr_mult: 2
+		decay_mult: 0
+	}
+	convolution_param {
+		num_output: 32
+		kernel_size: 4
+		stride: 2
+		pad:1
+	
+		weight_filler {
+			type: "gaussian"
+			std: 0.01
+		}
+		bias_filler {
+			type: "constant"
+			value: 0
+		}
+
+	}	
+}
+
+layer{
+	name:"relu2"
+	type:"ReLU"
+	top:"conv2"
+	bottom:"conv2"
+
+}
+##second fork start
+
+layer{
+	name:"pooling_fork3"
+	type:"Pooling"
+	bottom:"conv2"
+	top:"pooling_fork3"
+	pooling_param{
+		kernel_size:3
+		pad:1
+		stride:1
+	}
+}
+
+layer{
+	name:"deconv_fork4"
+	type:"Deconvolution"
+	bottom:"pooling_fork3"
+	top:"deconv_fork4"
+
+	param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+        convolution_param {
+                num_output: 32
+                kernel_size:4
+                stride: 2
+                pad:1
+        
+        	weight_filler {
+        		type: "gaussian"
+        		std: 0.01
+        	}
+        	bias_filler {
+        	type: "constant"
+        	value: 0
+       		 }
+	}
+}
+
+
+layer{
+	name:"deconv_fork5"
+	type:"Deconvolution"
+	bottom:"deconv_fork4"
+	top:"deconv_fork5"
+	  param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+        convolution_param {
+                num_output: 3
+                kernel_size: 4
+                stride: 2
+                pad:1
+        
+        	weight_filler {
+        		type: "gaussian"
+        		std: 0.01
+        	}
+        	bias_filler {
+        		type: "constant"
+        		value: 0
+        	}
+	}
+}
+
+
+
+layer{
+	name:"flatten_deconv_fork"
+	type:"Flatten"
+	bottom:"deconv_fork5"
+	top:"output_fork"
+
+}
+
+layer{
+	name:"flatten_data_fork"
+	type:"Flatten"
+	bottom:"data"
+	top:"label_fork"
+	propagate_down:false
+}
+
+layer{
+	name:"loss_fork"
+	type:"SigmoidCrossEntropyLoss"
+	bottom:"output_fork"
+	bottom:"label_fork"
+	top:"loss_fork"
+	propagate_down:true
+	propagate_down:false
+}
+
+
+
+##second fork end
+layer{
+	name:"roipool2"
+	type:"ROIPooling"
+	bottom:"conv2"
+	bottom:"rois"
+	top:"pool2"
+	
+	propagate_down:false
+	propagate_down:false
+	
+	roi_pooling_param {
+    	pooled_w: 4
+    	pooled_h: 3
+    	spatial_scale: 0.25 # 1/4
+	}
+}
+
+
+
+	
+
+
+#split into several singal batches to recombine
+
+layer{
+	name:"fc3"
+	type:"Convolution"
+	bottom:"pool2"
+	top:"fc3"
+	propagate_down:false
+	param {
+    		lr_mult: 1
+    		decay_mult: 1
+	}
+	param {
+    		lr_mult: 2
+    		decay_mult: 0
+  	}
+  	
+	convolution_param {
+                num_output: 32
+                kernel_w: 4
+		kernel_h:3
+                stride: 1
+       
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
+
+        }
+	
+}
+
+layer{
+	name:"relu3"
+	type:"ReLU"
+	top:"fc3"
+	bottom:"fc3"
+
+}
+
+layer{
+        name:"dropOut3"
+        type:"Dropout"
+        top:"fc3"
+        bottom:"fc3"
+        dropout_param{
+                dropout_ratio:0.2
+        }
+}
+
+
+
+layer{
+	name:"nwswap3"
+	type:"Python"
+	bottom:"fc3"
+	top:"fc3"
+	python_param{
+		module:'swap_layer.layer'
+		layer:'NWSwapLayer'
+	}
+}
+
+
+layer{
+	name:"fc4"
+	type:"Convolution"
+	top:"fc4"
+	bottom:"fc3"
+	param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+
+	 convolution_param {
+                num_output: 128
+                kernel_w:1 
+                kernel_h:32
+                stride: 1
+
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
+
+        }
+
+}
+
+layer{
+	name:"relu4"
+	type:"ReLU"
+	top:"fc4"
+	bottom:"fc4"
+}
+
+layer{
+	name:"dropout4"
+	type:"Dropout"
+	bottom:"fc4"
+	top:"fc4"
+	dropout_param{
+		dropout_ratio:0.2	
+	}
+}
+
+layer{
+	name:"pre_deroipool5"
+	type:"Convolution"
+	top:"pre_deroipool5"
+	bottom:"fc4"
+	param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+        
+	 convolution_param {
+                num_output: 196608
+                kernel_w: 1
+                kernel_h:1
+                stride: 1
+
+
+                weight_filler {
+                        type: "gaussian"
+                        std: 0.01
+                }
+                bias_filler {
+                        type: "constant"
+                        value: 0
+                }
+        }
+}
+
+layer{
+	name:"reshape5"
+	type:"Reshape"
+	bottom:"pre_deroipool5"
+	top:"rshape_pre_deroipool5"
+	reshape_param{
+		shape:{
+			dim:0
+			dim:-1
+			dim:2
+			dim:1
+		}
+	}
+}
+
+layer{
+	name:"nwswap5"
+	type:"Python"
+	bottom:"rshape_pre_deroipool5"
+	top:"nwswap_rshape_pre_deroipool5"
+	python_param{
+		module:'swap_layer.layer'
+		layer:'NWSwapLayer'
+
+	}
+}
+
+layer{
+	name:"relu5"
+	type:"ReLU"
+	top:"nwswap_rshape_pre_deroipool5"
+	bottom:"nwswap_rshape_pre_deroipool5"
+}
+
+layer{
+	name:"dropout5"
+	type:"Dropout"
+	top:"nwswap_rshape_pre_deroipool5"
+	bottom:"nwswap_rshape_pre_deroipool5"
+	dropout_param{
+		dropout_ratio:0.2
+	}
+
+}
+	
+layer{
+	name:"reshape5_2"
+	type:"Reshape"
+	bottom:"nwswap_rshape_pre_deroipool5"
+	top:"deroipool5"
+	reshape_param{
+		shape{
+			dim:2
+			dim:32
+			dim:48
+			dim:64
+		}
+	}
+}	
+
+
+layer{
+	name:"deconv6"
+	type:"Deconvolution"
+	bottom:"deroipool5"
+	top:"deconv6"
+
+	param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+        convolution_param {
+                num_output: 32
+                kernel_size:4
+                stride: 2
+                pad:1
+        
+        	weight_filler {
+        		type: "gaussian"
+        		std: 0.01
+        	}
+        	bias_filler {
+        	type: "constant"
+        	value: 0
+       		 }
+	}
+}
+
+
+layer{
+	name:"deconv7"
+	type:"Deconvolution"
+	bottom:"deconv6"
+	top:"deconv7"
+	  param {
+                lr_mult: 1
+                decay_mult: 1
+        }
+        param {
+                lr_mult: 2
+                decay_mult: 0
+        }
+        convolution_param {
+                num_output: 3
+                kernel_size: 4
+                stride: 2
+                pad:1
+        
+        	weight_filler {
+        		type: "gaussian"
+        		std: 0.01
+        	}
+        	bias_filler {
+        		type: "constant"
+        		value: 0
+        	}
+	}
+}
+
+
+
+layer{
+	name:"flatten_deconv"
+	type:"Flatten"
+	bottom:"deconv7"
+	top:"output"
+
+}
+
+layer{
+	name:"flatten_data"
+	type:"Flatten"
+	bottom:"data"
+	top:"label"
+	propagate_down:false
+}
+
+layer{
+	name:"loss"
+	type:"SigmoidCrossEntropyLoss"
+	bottom:"output"
+	bottom:"label"
+	top:"loss"
+	propagate_down:true
+	propagate_down:false
+}
+
